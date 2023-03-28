@@ -1,6 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using UserManagementAPI.Data;
+using UserManagementAPI.Interfaces;
 using UserManagementAPI.Models;
 
 namespace UserManagementAPI.Controllers
@@ -9,30 +9,24 @@ namespace UserManagementAPI.Controllers
     [ApiController]
     public class UserController : ControllerBase
     {
-        private readonly ApplicationDbContext _context;
+        private readonly IUserRepository _userRepository;
 
-        public UserController(ApplicationDbContext context)
+        public UserController(IUserRepository userRepository)
         {
-            _context = context;
+            _userRepository = userRepository;
         }
 
         [HttpGet]
         public async Task<ActionResult<IEnumerable<User>>> GetUsers()
         {
-            if (_context.Users == null)
-                return NotFound();
-
-            var users = await _context.Users.ToListAsync();
+            var users = await _userRepository.GetAll();
             return Ok(users);
         }
 
         [HttpGet("{id}")]
         public async Task<ActionResult<User>> GetUser(int id)
         {
-            if (_context.Users == null)
-                return NotFound();
-
-            var user = await _context.Users.FindAsync(id);
+            var user = await _userRepository.GetById(id);
             if (user == null)
                 return NotFound();
 
@@ -43,11 +37,7 @@ namespace UserManagementAPI.Controllers
         [HttpPost]
         public async Task<ActionResult> PostUser(User user)
         {
-            if (_context.Users == null)
-                return NotFound();
-
-            _context.Users.Add(user);
-            await _context.SaveChangesAsync();
+            await _userRepository.Add(user);
 
             var response = new { User = user, Message = "User added successfully" };
             return Ok(response);
@@ -59,15 +49,13 @@ namespace UserManagementAPI.Controllers
             if (id != user.Id)
                 return BadRequest();
 
-            _context.Entry(user).State = EntityState.Modified;
-
             try
             {
-                await _context.SaveChangesAsync();
+                await _userRepository.Update(user);
             }
             catch (DbUpdateConcurrencyException)
             {
-                if (!_context.Users.Any(u => u.Id == id))
+                if (!_userRepository.UserExists(id))
                 {
                     return NotFound();
                 }
@@ -84,15 +72,11 @@ namespace UserManagementAPI.Controllers
         [HttpDelete("{id}")]
         public async Task<ActionResult> DeleteUser(int id)
         {
-            if (_context.Users == null)
-                return NotFound();
-
-            var user = await _context.Users.FindAsync(id);
+            var user = await _userRepository.GetById(id);
             if (user == null)
                 return NotFound();
 
-            _context.Users.Remove(user);
-            await _context.SaveChangesAsync();
+            await _userRepository.Delete(user);
 
             var response = new { User = user, Message = "User deleted successfully" };
             return Ok(response);
