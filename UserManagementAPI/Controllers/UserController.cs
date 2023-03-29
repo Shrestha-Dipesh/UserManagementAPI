@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using UserManagementAPI.DTOs;
 using UserManagementAPI.Interfaces;
 using UserManagementAPI.Models;
 
@@ -17,37 +18,46 @@ namespace UserManagementAPI.Controllers
         }
 
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<User>>> GetUsers()
+        public async Task<ActionResult<IEnumerable<UserDTO>>> GetUsers()
         {
             var users = await _userRepository.GetAll();
-            return Ok(users);
+            var usersDTO = users.Select(UserToDTO);
+
+            return Ok(usersDTO);
         }
 
         [HttpGet("{id}")]
-        public async Task<ActionResult<User>> GetUser(int id)
+        public async Task<ActionResult<UserDTO>> GetUser(int id)
         {
             var user = await _userRepository.GetById(id);
             if (user == null)
                 return NotFound();
 
-            return Ok(user);
+            var userDTO = UserToDTO(user);
+
+            return Ok(userDTO);
 
         }
 
         [HttpPost]
-        public async Task<ActionResult> PostUser(User user)
+        public async Task<ActionResult> PostUser(UserDTO userDTO)
         {
+            var user = DTOToUser(userDTO);
             await _userRepository.Add(user);
 
-            var response = new { User = user, Message = "User added successfully" };
+            var newUserDTO = CreatedAtAction(nameof(GetUser), new {id = user.Id}, UserToDTO(user));
+
+            var response = new { User = newUserDTO.Value, Message = "User added successfully" };
             return Ok(response);
         }
 
         [HttpPut("{id}")]
-        public async Task<ActionResult> PutUser(int id, User user)
+        public async Task<ActionResult> PutUser(int id, UserDTO userDTO)
         {
-            if (id != user.Id)
+            if (id != userDTO.Id)
                 return BadRequest();
+
+            var user = DTOToUser(userDTO);
 
             try
             {
@@ -65,7 +75,7 @@ namespace UserManagementAPI.Controllers
                 }
             }
 
-            var response = new { User = user, Message = "User updated successfully" };
+            var response = new { User = userDTO, Message = "User updated successfully" };
             return Ok(response);
         }
 
@@ -78,8 +88,32 @@ namespace UserManagementAPI.Controllers
 
             await _userRepository.Delete(user);
 
-            var response = new { User = user, Message = "User deleted successfully" };
+            var userDTO = UserToDTO(user);
+
+            var response = new { User = userDTO, Message = "User deleted successfully" };
             return Ok(response);
         }
+
+        private static UserDTO UserToDTO(User user) =>
+            new()
+            {
+                Id = user.Id,
+                FirstName = user.FirstName,
+                LastName = user.LastName,
+                DateOfBirth = user.DateOfBirth,
+                Gender = user.Gender,
+                Address = user.Address
+            };
+
+        private static User DTOToUser(UserDTO userDTO) =>
+            new()
+            {
+                Id = userDTO.Id,
+                FirstName = userDTO.FirstName,
+                LastName = userDTO.LastName,
+                DateOfBirth = userDTO.DateOfBirth,
+                Gender = userDTO.Gender,
+                Address = userDTO.Address
+            };
     }
 }
